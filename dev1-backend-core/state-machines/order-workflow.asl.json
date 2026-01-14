@@ -1,0 +1,60 @@
+{
+  "Comment": "Order Processing Workflow - Placeholder for Developer 1",
+  "StartAt": "ValidateOrder",
+  "States": {
+    "ValidateOrder": {
+      "Type": "Pass",
+      "Comment": "Placeholder: Validate order details",
+      "Result": {
+        "isValid": true
+      },
+      "Next": "ProcessPayment"
+    },
+    "ProcessPayment": {
+      "Type": "Pass",
+      "Comment": "Placeholder: Process payment",
+      "Result": {
+        "paymentStatus": "success",
+        "transactionId": "txn-12345"
+      },
+      "Next": "UpdateOrderStatus"
+    },
+    "UpdateOrderStatus": {
+      "Type": "Task",
+      "Comment": "Update order status in DynamoDB",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${OrdersTableName}",
+        "Key": {
+          "orderId": {
+            "S.$": "$.orderId"
+          }
+        },
+        "UpdateExpression": "SET orderStatus = :status, updatedAt = :timestamp",
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "COMPLETED"
+          },
+          ":timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          }
+        }
+      },
+      "Next": "NotifyOrderCompletion"
+    },
+    "NotifyOrderCompletion": {
+      "Type": "Task",
+      "Comment": "Send notification via SNS",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${OrderTopicArn}",
+        "Message": {
+          "orderId.$": "$.orderId",
+          "status": "COMPLETED",
+          "timestamp.$": "$$.State.EnteredTime"
+        }
+      },
+      "End": true
+    }
+  }
+}
