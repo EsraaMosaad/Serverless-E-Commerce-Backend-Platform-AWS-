@@ -1,122 +1,101 @@
-# E-Commerce Serverless Backend - AWS SAM
+# 🚀 E-Commerce Serverless Backend - AWS SAM
 
-## Architecture Overview
-Serverless e-commerce backend built with AWS SAM for a 2-day hackathon by a team of 3 developers.
+A high-performance, scalable e-commerce backend built using **AWS SAM**, **Python 3.9**, and **Step Functions**. This project was designed for a team of 3 developers to work in parallel on different architectural components.
 
-## Developer Assignments
+---
 
-### Developer 1: Backend Core & Orchestration
-**Scope:**
-- DynamoDB Tables (Products, Orders)
-- SQS Queue (Order Processing)
-- SNS Topic (Order Completed)
-- Step Functions State Machine (Order Workflow)
+## 🔗 Live API & Testing
+- **API Gateway URL:** `https://kfmg30d5hg.execute-api.us-east-1.amazonaws.com/dev/`
+- **Postman Collection:** [ecommerce_api.postman_collection.json](./ecommerce_api.postman_collection.json)
+- **Environment:** `dev` (Single environment setup)
 
-**Directory:** `dev1-backend-core/`
+---
 
-### Developer 2: API & Authentication
-**Scope:**
-- Cognito User Pool
-- API Gateway with Cognito Authorizer
-- Auth Handler Lambda
-- Order Entry Handler Lambda
+## 🛠️ Team Organization & Scope
 
-**Directory:** `dev2-api-auth/`
+### 🧑‍💻 Developer 1: Backend Core & Orchestration
+- **Infrastructure:** DynamoDB (Products, Orders), SQS (Order Queue), SNS (Notifications).
+- **Orchestration:** Step Functions (Order Processing Workflow).
+- **Lambdas:** `ValidateOrderFunction`, `ProcessPaymentFunction`.
+- **Directory:** `dev1-backend-core/`
 
-### Developer 3: Data & Media Management
-**Scope:**
-- S3 Bucket (Product Images)
-- Get Products Handler Lambda
-- Upload URL Handler Lambda
+### 🧑‍💻 Developer 2: API & Authentication
+- **Security:** Cognito User Pool (Auto-confirm enabled).
+- **API:** API Gateway with Cognito Authorizer.
+- **Lambdas:** `AuthHandler`, `OrderEntryHandler`.
+- **Directory:** `dev2-api-auth/`
 
-**Directory:** `dev3-data-media/`
+### 🧑‍💻 Developer 3: Data & Media Management
+- **Media:** S3 Bucket for Product Images (Pre-signed URL uploads).
+- **Lambdas:** `GetProductsHandler`, `UploadUrlHandler`.
+- **Directory:** `dev3-data-media/`
 
-## Project Structure
+---
 
-```
+## 📂 Project Structure
+
+```text
 ecommerce-serverless-sam/
 ├── template.yaml                 # Master SAM template
 ├── samconfig.toml               # SAM CLI configuration
-├── README.md                    # This file
+├── README.md                    # This file (Main Entry Point)
+├── seed_products.py             # Data seeding script for DynamoDB
+├── validate.sh                  # Environment validation script
+├── ecommerce_api.postman_collection.json # API Testing Collection
 │
-├── dev1-backend-core/           # Developer 1 workspace
-│   ├── lambdas/
-│   │   └── (No direct Lambdas, manages infrastructure)
-│   └── state-machines/
-│       └── order-workflow.asl.json
+├── dev1-backend-core/           # Developer 1: Workflow & Core Logic
+│   ├── lambdas/                 # Validation & Payment handlers
+│   └── state-machines/          # Order Workflow (Step Functions)
 │
-├── dev2-api-auth/               # Developer 2 workspace
-│   └── lambdas/
-│       ├── auth_handler/
-│       │   ├── app.py
-│       │   └── requirements.txt
-│       └── order_entry_handler/
-│           ├── app.py
-│           └── requirements.txt
+├── dev2-api-auth/               # Developer 2: API & Security
+│   └── lambdas/                 # Auth & Order Entry handlers
 │
-├── dev3-data-media/             # Developer 3 workspace
-│   └── lambdas/
-│       ├── get_products_handler/
-│       │   ├── app.py
-│       │   └── requirements.txt
-│       └── upload_url_handler/
-│           ├── app.py
-│           └── requirements.txt
+├── dev3-data-media/             # Developer 3: Products & S3
+│   └── lambdas/                 # Product listing & Upload handlers
 │
-├── shared/                      # Shared utilities
-│   └── layers/
-│       └── common/
-│           └── python/
-│               └── utils.py
-│
-├── tests/                       # Integration tests
-│   ├── test_dev1.py
-│   ├── test_dev2.py
-│   └── test_dev3.py
-│
-└── docs/                        # Documentation
-    ├── api-spec.md
-    └── deployment-guide.md
+└── docs/                        # Detailed Documentation
+    ├── architecture.md          # System design & diagrams
+    ├── step-by-step-guide.md    # Comprehensive project walkthrough
+    ├── project-summary.md       # High-level overview
+    ├── api-spec.md              # API documentation
+    └── deployment-guide.md      # How to deploy to AWS
 ```
 
-## Quick Start
+---
 
-### Prerequisites
-- AWS CLI configured
-- AWS SAM CLI installed
-- Python 3.9
+## ⚡ Quick Start
 
-### Build and Deploy
+### 1. Prerequisites
+- AWS CLI configured with credentials.
+- AWS SAM CLI installed.
+- Python 3.9.
+
+### 2. Build and Deploy
 ```bash
 # Build the application
 sam build
 
-# Deploy (guided)
-sam deploy --guided
-
-# Deploy (after first guided deployment)
-sam deploy
+# Deploy to AWS
+sam deploy --stack-name ecommerce-serverless-dev-v2 --region us-east-1 --s3-bucket ecommerce-sam-artifacts-1768394275 --capabilities CAPABILITY_IAM --no-confirm-changeset
 ```
 
-### Local Testing
+### 3. Seed Data
 ```bash
-# Start API locally
-sam local start-api
-
-# Invoke a specific function
-sam local invoke GetProductsHandler
+python3 seed_products.py
 ```
 
-## Development Workflow
+---
 
-1. Each developer works in their respective directory
-2. Update `template.yaml` only when adding new resources
-3. Commit changes frequently to avoid merge conflicts
-4. Test locally before deploying
+## 📖 Documentation Links
+- [Architecture & Flow](./docs/architecture.md)
+- [Step-by-Step Guide](./docs/step-by-step-guide.md)
+- [API Specification](./docs/api-spec.md)
+- [Project Summary](./docs/project-summary.md)
 
-## API Endpoints
+---
 
-- `POST /auth` - Authentication (AuthHandler)
-- `POST /orders` - Create new order (OrderEntryHandler)
-- `GET /products` - List all products (GetProductsHandler)
-- `GET /products/upload` - Get S3 presigned URL (UploadUrlHandler)
+## 🚀 API Endpoints Summary
+- `POST /auth` - Register/Login/Refresh (Public)
+- `GET /products` - List all products (Public)
+- `POST /orders` - Create new order (Authenticated)
+- `GET /products/upload` - Get S3 upload URL (Authenticated)
