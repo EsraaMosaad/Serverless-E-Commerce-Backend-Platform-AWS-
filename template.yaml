@@ -118,6 +118,38 @@ Resources:
         - Key: Environment
           Value: dev
 
+  # Lambda Function: Validate Order (Developer 1)
+  ValidateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: dev-ValidateOrderFunction
+      Handler: app.lambda_handler
+      CodeUri: dev1-backend-core/lambdas/validate_order_handler/
+      Description: Validates order details, checks products, and calculates totals
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource: !GetAtt ProductsTable.Arn
+      Tags:
+        Developer: Dev1
+        Environment: dev
+
+  # Lambda Function: Process Payment (Developer 1)
+  ProcessPaymentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: dev-ProcessPaymentFunction
+      Handler: app.lambda_handler
+      CodeUri: dev1-backend-core/lambdas/process_payment_handler/
+      Description: Processes payment (currently mock implementation)
+      Tags:
+        Developer: Dev1
+        Environment: dev
+
   # Step Functions State Machine for Order Processing Workflow
   OrderProcessingWorkflow:
     Type: AWS::Serverless::StateMachine
@@ -127,6 +159,8 @@ Resources:
       DefinitionSubstitutions:
         OrdersTableName: !Ref OrdersTable
         OrderTopicArn: !Ref OrderCompletedTopic
+        ValidateOrderFunctionArn: !GetAtt ValidateOrderFunction.Arn
+        ProcessPaymentFunctionArn: !GetAtt ProcessPaymentFunction.Arn
       Role: !GetAtt StepFunctionsExecutionRole.Arn
       Tags:
         Developer: Dev1
@@ -166,6 +200,12 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt OrderProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt ValidateOrderFunction.Arn
+                  - !GetAtt ProcessPaymentFunction.Arn
 
   ###############################################################################
   # DEVELOPER 2: API & AUTHENTICATION
