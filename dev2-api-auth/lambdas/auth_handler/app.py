@@ -75,14 +75,14 @@ def handle_register(body):
             ]
         )
         
-        # Auto-confirm the user for practice/testing
+        # Automatically confirm the user for a smoother registration flow
         cognito_client.admin_confirm_sign_up(
             UserPoolId=USER_POOL_ID,
             Username=email
         )
         
         return response(201, {
-            'message': 'User registered and confirmed successfully',
+            'message': 'User registered successfully',
             'userId': response_data['UserSub'],
             'email': email
         })

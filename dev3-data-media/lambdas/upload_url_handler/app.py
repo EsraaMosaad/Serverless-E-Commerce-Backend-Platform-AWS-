@@ -79,7 +79,7 @@ def lambda_handler(event, context):
             'expiresAt': (datetime.utcnow().timestamp() + expires_in),
             'instructions': {
                 'method': 'PUT',
-                'note': '1. Use PUT method. 2. UNCHECK all headers in Postman. 3. Select binary body.'
+                'note': 'Upload the file directly to the uploadUrl using the PUT method. Ensure no extra headers are sent if using binary body.'
             }
         })
     
