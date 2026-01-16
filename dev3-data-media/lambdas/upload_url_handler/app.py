@@ -62,12 +62,7 @@ def lambda_handler(event, context):
             'put_object',
             Params={
                 'Bucket': PRODUCT_IMAGES_BUCKET,
-                'Key': s3_key,
-                'ContentType': content_type,
-                'Metadata': {
-                    'originalFilename': filename,
-                    'uploadedAt': datetime.utcnow().isoformat()
-                }
+                'Key': s3_key
             },
             ExpiresIn=expires_in,
             HttpMethod='PUT'
@@ -84,10 +79,7 @@ def lambda_handler(event, context):
             'expiresAt': (datetime.utcnow().timestamp() + expires_in),
             'instructions': {
                 'method': 'PUT',
-                'headers': {
-                    'Content-Type': content_type
-                },
-                'note': 'Upload the file directly to the uploadUrl using PUT method'
+                'note': '1. Use PUT method. 2. UNCHECK all headers in Postman. 3. Select binary body.'
             }
         })
     
