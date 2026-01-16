@@ -1,59 +1,219 @@
 {
-  "Comment": "Order Processing Workflow - Placeholder for Developer 1",
+  "Comment": "Enhanced Order Processing Workflow with Lambda Functions and Error Handling",
   "StartAt": "ValidateOrder",
   "States": {
     "ValidateOrder": {
-      "Type": "Pass",
-      "Comment": "Placeholder: Validate order details",
-      "Result": {
-        "isValid": true
+      "Type": "Task",
+      "Comment": "Validates order using Lambda function - checks products, stock, and pricing",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ValidateOrderFunctionArn}",
+        "Payload.$": "$"
       },
+      "ResultPath": "$.validationOutput",
+      "ResultSelector": {
+        "result.$": "$.Payload"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0,
+          "Comment": "Retry on transient Lambda errors with exponential backoff"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "HandleValidationError"
+        }
+      ],
       "Next": "ProcessPayment"
     },
     "ProcessPayment": {
-      "Type": "Pass",
-      "Comment": "Placeholder: Process payment",
-      "Result": {
-        "paymentStatus": "success",
-        "transactionId": "txn-12345"
+      "Type": "Task",
+      "Comment": "Processes payment using Lambda function - currently mock implementation",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ProcessPaymentFunctionArn}",
+        "Payload.$": "$.validationOutput.result"
       },
+      "ResultPath": "$.paymentOutput",
+      "ResultSelector": {
+        "result.$": "$.Payload"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0,
+          "Comment": "Retry on transient Lambda errors (not payment failures)"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "HandlePaymentError"
+        }
+      ],
       "Next": "UpdateOrderStatus"
     },
     "UpdateOrderStatus": {
       "Type": "Task",
-      "Comment": "Update order status in DynamoDB",
+      "Comment": "Update order status to COMPLETED in DynamoDB",
       "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${OrdersTableName}",
         "Key": {
           "orderId": {
-            "S.$": "$.orderId"
+            "S.$": "$.validationOutput.result.orderId"
           }
         },
-        "UpdateExpression": "SET orderStatus = :status, updatedAt = :timestamp",
+        "UpdateExpression": "SET orderStatus = :status, updatedAt = :timestamp, paymentTransactionId = :txnId",
         "ExpressionAttributeValues": {
           ":status": {
             "S": "COMPLETED"
           },
           ":timestamp": {
             "S.$": "$$.State.EnteredTime"
+          },
+          ":txnId": {
+            "S.$": "$.paymentOutput.result.paymentResult.transactionId"
           }
         }
       },
+      "ResultPath": "$.updateResult",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "DynamoDB.ServiceException",
+            "DynamoDB.ProvisionedThroughputExceededException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
       "Next": "NotifyOrderCompletion"
     },
     "NotifyOrderCompletion": {
       "Type": "Task",
-      "Comment": "Send notification via SNS",
+      "Comment": "Send success notification via SNS",
       "Resource": "arn:aws:states:::sns:publish",
       "Parameters": {
         "TopicArn": "${OrderTopicArn}",
+        "Subject": "Order Completed Successfully",
         "Message": {
-          "orderId.$": "$.orderId",
+          "orderId.$": "$.validationOutput.result.orderId",
+          "userId.$": "$.validationOutput.result.userId",
           "status": "COMPLETED",
-          "timestamp.$": "$$.State.EnteredTime"
+          "totalAmount.$": "$.validationOutput.result.totalAmount",
+          "transactionId.$": "$.paymentOutput.result.paymentResult.transactionId",
+          "timestamp.$": "$$.State.EnteredTime",
+          "message": "Your order has been processed successfully!"
         }
       },
+      "ResultPath": "$.notificationResult",
+      "End": true
+    },
+    "HandleValidationError": {
+      "Type": "Pass",
+      "Comment": "Process validation error details",
+      "Parameters": {
+        "orderId.$": "$.orderId",
+        "userId.$": "$.userId",
+        "error": "VALIDATION_FAILED",
+        "errorDetails.$": "$.error",
+        "timestamp.$": "$$.State.EnteredTime"
+      },
+      "ResultPath": "$.errorInfo",
+      "Next": "MarkOrderFailed"
+    },
+    "HandlePaymentError": {
+      "Type": "Pass",
+      "Comment": "Process payment error details",
+      "Parameters": {
+        "orderId.$": "$.validationOutput.result.orderId",
+        "userId.$": "$.validationOutput.result.userId",
+        "error": "PAYMENT_FAILED",
+        "errorDetails.$": "$.error",
+        "timestamp.$": "$$.State.EnteredTime"
+      },
+      "ResultPath": "$.errorInfo",
+      "Next": "MarkOrderFailed"
+    },
+    "MarkOrderFailed": {
+      "Type": "Task",
+      "Comment": "Update order status to FAILED in DynamoDB",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${OrdersTableName}",
+        "Key": {
+          "orderId": {
+            "S.$": "$.errorInfo.orderId"
+          }
+        },
+        "UpdateExpression": "SET orderStatus = :status, updatedAt = :timestamp, errorReason = :error",
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "FAILED"
+          },
+          ":timestamp": {
+            "S.$": "$$.State.EnteredTime"
+          },
+          ":error": {
+            "S.$": "$.errorInfo.error"
+          }
+        }
+      },
+      "ResultPath": "$.updateResult",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "DynamoDB.ServiceException",
+            "DynamoDB.ProvisionedThroughputExceededException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "NotifyOrderFailure"
+    },
+    "NotifyOrderFailure": {
+      "Type": "Task",
+      "Comment": "Send failure notification via SNS",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${OrderTopicArn}",
+        "Subject": "Order Processing Failed",
+        "Message": {
+          "orderId.$": "$.errorInfo.orderId",
+          "userId.$": "$.errorInfo.userId",
+          "status": "FAILED",
+          "error.$": "$.errorInfo.error",
+          "timestamp.$": "$$.State.EnteredTime",
+          "message": "We're sorry, but your order could not be processed. Please try again or contact support."
+        }
+      },
+      "ResultPath": "$.notificationResult",
       "End": true
     }
   }
