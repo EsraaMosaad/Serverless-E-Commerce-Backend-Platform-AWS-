@@ -35,7 +35,6 @@ ENV/
 env/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -56,8 +55,6 @@ htmlcov/
 .pytest_cache/
 
 # Environment variables
-.env
-.env.local
 .env.*.local
 
 # Package managers
@@ -68,3 +65,4 @@ package-lock.json
 *.tmp
 *.bak
 .temp/
+config.bat
